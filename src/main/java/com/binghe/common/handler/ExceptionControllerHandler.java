@@ -11,7 +11,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * controller 统一异常处理
@@ -29,8 +33,8 @@ public class ExceptionControllerHandler {
      * @return
      */
     @ExceptionHandler(Exception.class)
-    public ApiResponse<Void> handleException(Exception e) {
-        log.info(">>>>> handleException", e);
+    public ApiResponse<Void> handleException(Exception e, HttpServletRequest request) {
+        logError("handleException", request.getRequestURI(), e);
         return ApiResponse.buildFail(ResponseCode.SYSTEM_ERROR);
     }
 
@@ -41,8 +45,8 @@ public class ExceptionControllerHandler {
      * @return
      */
     @ExceptionHandler(ApiException.class)
-    public ApiResponse<Void> handleApiException(ApiException e) {
-        log.info(">>>>> handleApiException", e);
+    public ApiResponse<Void> handleApiException(ApiException e, HttpServletRequest request) {
+        logError("handleApiException", request.getRequestURI(), e);
         return ApiResponse.buildFail(e.getResponseCode());
     }
 
@@ -52,15 +56,57 @@ public class ExceptionControllerHandler {
      * @param e 异常对象
      * @return
      */
-    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
-    public ApiResponse<Void> handleMethodArgumentNotValidException(Exception e) {
-        log.info(">>>>> handleMethodArgumentNotValidException", e);
-        List<ObjectError> allErrors;
-        if (e instanceof MethodArgumentNotValidException) {
-            allErrors = ((MethodArgumentNotValidException) e).getBindingResult().getAllErrors();
-        } else {
-            allErrors = ((BindException) e).getBindingResult().getAllErrors();
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ApiResponse<Void> handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
+        logError("handleMethodArgumentNotValidException", request.getRequestURI(), e);
+        List<ObjectError> allErrors = e.getBindingResult().getAllErrors();
+        return handleArgNotValid(allErrors);
+    }
+
+    /**
+     * BindException 处理
+     *
+     * @param e 异常对象
+     * @return
+     */
+    @ExceptionHandler(BindException.class)
+    public ApiResponse<Void> handleBindException(BindException e, HttpServletRequest request) {
+        logError("handleBindException", request.getRequestURI(), e);
+        List<ObjectError> allErrors = e.getBindingResult().getAllErrors();
+        return handleArgNotValid(allErrors);
+    }
+
+    /**
+     * ConstraintViolationException 处理
+     *
+     * @param e 异常对象
+     * @return
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ApiResponse<Void> handleConstraintViolationException(ConstraintViolationException e, HttpServletRequest request) {
+        logError("handleConstraintViolationException", request.getRequestURI(), e);
+        Set<ConstraintViolation<?>> constraintViolations = e.getConstraintViolations();
+        if (CollectionUtils.isEmpty(constraintViolations)) {
+            return ApiResponse.buildFail(ResponseCode.ARG_NOT_VALID);
         }
+        StringBuilder sb = new StringBuilder();
+        for (ConstraintViolation<?> constraintViolation : constraintViolations) {
+            sb.append(constraintViolation.getMessage()).append(",");
+        }
+        String msg = sb.toString();
+        if (sb.length() > 0) {
+            msg = sb.substring(0, sb.length() - 1);
+        }
+        return ApiResponse.buildFail(new ApiResponse(ResponseCode.ARG_NOT_VALID, msg));
+    }
+
+    /**
+     * 处理参数不合法
+     *
+     * @param allErrors 错误信息
+     * @return 返回统一响应数据体
+     */
+    private ApiResponse<Void> handleArgNotValid(List<ObjectError> allErrors) {
         if (CollectionUtils.isEmpty(allErrors)) {
             return ApiResponse.buildFail(ResponseCode.ARG_NOT_VALID);
         }
@@ -73,5 +119,16 @@ public class ExceptionControllerHandler {
             msg = sb.substring(0, sb.length() - 1);
         }
         return ApiResponse.buildFail(new ApiResponse(ResponseCode.ARG_NOT_VALID, msg));
+    }
+
+    /**
+     * 打印异常日志
+     *
+     * @param method 处理异常的方法名
+     * @param uri    请求的uri
+     * @param e      异常对象
+     */
+    private void logError(String method, String uri, Exception e) {
+        log.info(method + " uri:{}", uri, e);
     }
 }

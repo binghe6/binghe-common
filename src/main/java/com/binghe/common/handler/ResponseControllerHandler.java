@@ -1,4 +1,4 @@
-package com.binghe.common.scans.common.handler;
+package com.binghe.common.handler;
 
 import com.binghe.common.anno.IgnoreApiResponseAnnotation;
 import com.binghe.common.domain.vo.ApiResponse;

@@ -13,6 +13,3 @@
 	2. 不需要封装为 ApiResponse 格式的接口，在方法上使用 IgnoreApiResponseAnnotation 注解
 * ## 自定义异常
 	1. 项目中可以处理的异常，抛出 ApiException
-* ## 补充
-	1. 全局通用的需要spring容器扫描的类放到 com.binghe.common.scans.common 目录下
-	2. 根据项目情况不同，自定义需要spring容器扫描的类放到 com.binghe.common.scans.custom 目录下
